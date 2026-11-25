@@ -1,0 +1,129 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project Paani Map</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  body { font-family: sans-serif; margin: 0; color: #000; background: #fff; }
+  header { padding: 8px 12px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p { margin: 4px 0; }
+  #map { height: 70vh; border-top: 1px solid #000; border-bottom: 1px solid #000; }
+  .leaflet-tooltip.well { background: #000; color: #fff; border: 0; font-weight: bold; box-shadow: none; }
+  .leaflet-tooltip.well::before { display: none; }
+  .leaflet-popup-content { font-size: 13px; }
+  .leaflet-popup-content img { width: 100%; max-width: 260px; display: block; margin-bottom: 6px; }
+  .leaflet-popup-content table { border-collapse: collapse; }
+  .leaflet-popup-content td { vertical-align: top; padding: 1px 4px 1px 0; }
+  table.list { border-collapse: collapse; margin: 12px; font-size: 14px; }
+  table.list th, table.list td { border: 1px solid #000; padding: 2px 6px; text-align: left; }
+  table.list tr { cursor: pointer; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Project Paani Map</h1>
+  <p>Black square with label: water well. Black dot: community 1 (well). White dot: community 2 (no well). Click a dot for the household's answers.</p>
+  <p id="summary">Loading...</p>
+  <p><a href="/map/export.csv">Download all data (CSV)</a></p>
+</header>
+
+<div id="map"></div>
+
+<table class="list" id="list">
+  <thead><tr><th>Household</th><th>Community</th><th>Distance to well</th><th>People</th><th>Survey date</th></tr></thead>
+  <tbody></tbody>
+</table>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function km(m) { return m >= 1000 ? (m / 1000).toFixed(2) + ' km' : m + ' m'; }
+
+  var map = L.map('map');
+  var street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
+  });
+  var satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 19, attribution: 'Imagery &copy; Esri'
+  });
+  satellite.addTo(map);
+  L.control.layers({ 'Satellite': satellite, 'Street': street }, null, { collapsed: false }).addTo(map);
+  L.control.scale().addTo(map);
+
+  var ROWS = [
+    ['Survey date', 'survey_date'],
+    ['Community', 'community'],
+    ['Coordinates', null],
+    ['Distance to well', null],
+    ['1. People in household', 'q1_household_size'],
+    ['2. Drinking water source', 'q2_water_source'],
+    ['3. Round trip (minutes)', 'q3_round_trip_minutes'],
+    ['4. Trips per week', 'q4_trips_per_week'],
+    ['5. Who collects', 'q5_who_collects'],
+    ['6. Days without enough water (30 days)', 'q6_days_not_enough_water'],
+    ['7. Willing to pay per month', 'q7_willing_to_pay'],
+    ['8. People with diarrhoea (14 days)', 'q8_people_with_diarrhoea'],
+    ['9. Symptoms (7 days)', 'q9_symptoms']
+  ];
+
+  function popup(h) {
+    var rows = ROWS.map(function (r) {
+      var v;
+      if (r[0] === 'Coordinates') v = h.lat.toFixed(6) + ', ' + h.lng.toFixed(6) + (h.gps_accuracy_m ? ' (GPS +/- ' + h.gps_accuracy_m + ' m)' : '');
+      else if (r[0] === 'Distance to well') v = km(h.distance_to_well_m);
+      else v = Array.isArray(h[r[1]]) ? h[r[1]].join(', ') : h[r[1]];
+      return '<tr><td><b>' + esc(r[0]) + '</b></td><td>' + esc(v) + '</td></tr>';
+    }).join('');
+    return '<p><b>Household ' + esc(h.household_id) + '</b></p>' +
+      '<a href="/map/photos/' + encodeURIComponent(h.photo) + '" target="_blank"><img src="/map/photos/' + encodeURIComponent(h.photo) + '" alt="Family photo"></a>' +
+      '<table>' + rows + '</table>';
+  }
+
+  fetch('/map/data.json').then(function (r) { return r.json(); }).then(function (data) {
+    var well = data.well;
+    var bounds = L.latLngBounds([[well.lat, well.lng]]);
+
+    // Water well: black square with a permanent label.
+    var d = 0.00006;
+    L.rectangle([[well.lat - d, well.lng - d], [well.lat + d, well.lng + d]], { color: '#000', weight: 2, fillColor: '#000', fillOpacity: 1 })
+      .addTo(map)
+      .bindTooltip('WATER WELL', { permanent: true, direction: 'right', offset: [8, 0], className: 'well' })
+      .bindPopup('<b>Solar powered water well</b><br>' + well.lat.toFixed(6) + ', ' + well.lng.toFixed(6));
+
+    var tbody = document.querySelector('#list tbody');
+    data.households
+      .sort(function (a, b) { return a.distance_to_well_m - b.distance_to_well_m; })
+      .forEach(function (h) {
+        var withWell = h.community.indexOf('1') === 0;
+        var m = L.circleMarker([h.lat, h.lng], {
+          radius: 7, color: '#000', weight: 2, fillColor: withWell ? '#000' : '#fff', fillOpacity: 1
+        }).addTo(map).bindPopup(popup(h), { maxWidth: 300 }).bindTooltip(String(h.household_id));
+        bounds.extend(m.getLatLng());
+
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + esc(h.household_id) + '</td><td>' + esc(h.community) + '</td><td>' +
+          km(h.distance_to_well_m) + '</td><td>' + esc(h.q1_household_size) + '</td><td>' + esc(h.survey_date) + '</td>';
+        tr.onclick = function () { map.setView(m.getLatLng(), Math.max(map.getZoom(), 16)); m.openPopup(); window.scrollTo(0, 0); };
+        tbody.appendChild(tr);
+      });
+
+    var n = data.households.length;
+    var c1 = data.households.filter(function (h) { return h.community.indexOf('1') === 0; }).length;
+    document.getElementById('summary').textContent = n + ' households surveyed (' + c1 + ' community 1, ' + (n - c1) + ' community 2).';
+
+    if (n) map.fitBounds(bounds, { padding: [30, 30], maxZoom: 17 });
+    else map.setView([well.lat, well.lng], 16);
+  }).catch(function () {
+    document.getElementById('summary').textContent = 'Could not load survey data. Reload the page.';
+  });
+</script>
+</body>
+</html>

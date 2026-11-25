@@ -1,0 +1,187 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project Paani Survey</title>
+<style>
+  body { font-family: sans-serif; max-width: 640px; margin: 16px auto; padding: 0 12px; color: #000; background: #fff; line-height: 1.5; }
+  fieldset { border: 0; border-top: 1px solid #000; margin: 0; padding: 12px 0; }
+  legend { font-weight: bold; padding: 0; float: left; width: 100%; }
+  legend + * { clear: both; }
+  label { display: block; }
+  input[type=text], input[type=number], input[type=date] { font-size: 16px; padding: 4px; }
+  button { font-size: 16px; padding: 6px 12px; }
+</style>
+</head>
+<body>
+
+<h1>Project Paani Survey</h1>
+<p>Household Water Access and Health Impact Baseline Survey</p>
+
+<form method="post" action="/survey" enctype="multipart/form-data" id="survey">
+
+<fieldset>
+  <label>Survey date <input type="date" name="survey_date" id="survey_date" required></label>
+  <label>Household ID <input type="text" name="household_id" required></label>
+  <p><b>Community</b></p>
+  <label><input type="radio" name="community" value="1 (WELL)" required> 1 (WELL)</label>
+  <label><input type="radio" name="community" value="2 (NO WELL)"> 2 (NO WELL)</label>
+</fieldset>
+
+<fieldset>
+  <legend>Location of household</legend>
+  <p>Stand at the house and press the button, or type the coordinates.</p>
+  <button type="button" id="locate">Use current location</button>
+  <span id="locate_status"></span>
+  <label>Latitude <input type="text" name="lat" id="lat" inputmode="decimal" placeholder="27.5295" required></label>
+  <label>Longitude <input type="text" name="lng" id="lng" inputmode="decimal" placeholder="68.7592" required></label>
+  <input type="hidden" name="gps_accuracy" id="gps_accuracy">
+</fieldset>
+
+<fieldset>
+  <legend>Family photo</legend>
+  <input type="file" name="photo" accept="image/*" capture="environment" required>
+</fieldset>
+
+<fieldset>
+  <legend>1. How many people normally live in your household?</legend>
+  <label>Number: <input type="number" name="q1" min="1" step="1" required></label>
+</fieldset>
+
+<fieldset>
+  <legend>2. Where does your household obtain most of its drinking water?</legend>
+  <label><input type="radio" name="q2" value="Community well" required> Community well</label>
+  <label><input type="radio" name="q2" value="Household well"> Household well</label>
+  <label><input type="radio" name="q2" value="Borehole or handpump"> Borehole or handpump</label>
+  <label><input type="radio" name="q2" value="Piped water supply"> Piped water supply</label>
+  <label><input type="radio" name="q2" value="Purchased water"> Purchased water</label>
+  <label><input type="radio" name="q2" value="Other"> Other: <input type="text" name="q2_other"></label>
+</fieldset>
+
+<fieldset>
+  <legend>3. How long does a complete round trip to collect drinking water usually take, including travelling, waiting, collecting the water and returning home?</legend>
+  <label><input type="number" name="q3_minutes" min="0" step="1"> minutes</label>
+  <label><input type="checkbox" name="q3_other" value="Water is available at home" class="q3"> Water is available at home</label>
+  <label><input type="checkbox" name="q3_other" value="Don't know" class="q3"> Don't know</label>
+</fieldset>
+
+<fieldset>
+  <legend>4. In a typical week, how many trips does your household make to collect drinking water?</legend>
+  <label><input type="number" name="q4_trips" min="0" step="1"> trips per week</label>
+  <label><input type="checkbox" name="q4_at_home" value="1"> Water is delivered or available at home</label>
+</fieldset>
+
+<fieldset>
+  <legend>5. Who usually makes most of the trips to collect drinking water?</legend>
+  <label><input type="radio" name="q5" value="Adult woman" required> Adult woman</label>
+  <label><input type="radio" name="q5" value="Adult man"> Adult man</label>
+  <label><input type="radio" name="q5" value="Girl under 18"> Girl under 18</label>
+  <label><input type="radio" name="q5" value="Boy under 18"> Boy under 18</label>
+  <label><input type="radio" name="q5" value="Shared between household members"> Shared between household members</label>
+  <label><input type="radio" name="q5" value="No collection trips required"> No collection trips required</label>
+</fieldset>
+
+<fieldset>
+  <legend>6. In the past 30 days, on how many days did your household not have enough drinking water to meet its needs?</legend>
+  <label><input type="radio" name="q6" value="0 days" required> 0 days</label>
+  <label><input type="radio" name="q6" value="1-2 days"> 1&ndash;2 days</label>
+  <label><input type="radio" name="q6" value="3-7 days"> 3&ndash;7 days</label>
+  <label><input type="radio" name="q6" value="8-14 days"> 8&ndash;14 days</label>
+  <label><input type="radio" name="q6" value="15 or more days"> 15 or more days</label>
+  <label><input type="radio" name="q6" value="Don't know"> Don't know</label>
+</fieldset>
+
+<fieldset>
+  <legend>7. Imagine your household could have reliable access to safe drinking water from a nearby community well throughout the year. What is the maximum amount your household would be willing and able to pay each month for this service?</legend>
+  <p><i>This is a hypothetical question. Your response will not affect access to water or result in any charge.</i></p>
+  <label><input type="radio" name="q7" value="0 Pakistani rupees" required> 0 Pakistani rupees</label>
+  <label><input type="radio" name="q7" value="1-100 Pakistani rupees"> 1&ndash;100 Pakistani rupees</label>
+  <label><input type="radio" name="q7" value="101-250 Pakistani rupees"> 101&ndash;250 Pakistani rupees</label>
+  <label><input type="radio" name="q7" value="251-500 Pakistani rupees"> 251&ndash;500 Pakistani rupees</label>
+  <label><input type="radio" name="q7" value="More than 500 Pakistani rupees"> More than 500 Pakistani rupees</label>
+  <label><input type="radio" name="q7" value="Don't know / Prefer not to answer"> Don't know / Prefer not to answer</label>
+</fieldset>
+
+<fieldset>
+  <legend>8. In the past 14 days, including today, how many people in your household experienced diarrhoea (three or more loose or watery stools within 24 hours)?</legend>
+  <label><input type="number" name="q8_people" min="0" step="1"> people</label>
+  <label><input type="checkbox" name="q8_dont_know" value="1"> Don't know</label>
+</fieldset>
+
+<fieldset>
+  <legend>9. In the past 7 days, have you personally experienced any of the following symptoms? (Select all that apply.)</legend>
+  <label><input type="checkbox" name="q9" value="Unusual thirst" class="q9"> Unusual thirst</label>
+  <label><input type="checkbox" name="q9" value="Dry mouth" class="q9"> Dry mouth</label>
+  <label><input type="checkbox" name="q9" value="Dark yellow urine" class="q9"> Dark yellow urine</label>
+  <label><input type="checkbox" name="q9" value="Dizziness" class="q9"> Dizziness</label>
+  <label><input type="checkbox" name="q9" value="Headaches" class="q9"> Headaches</label>
+  <label><input type="checkbox" name="q9" value="None of the above" id="q9_none"> None of the above</label>
+</fieldset>
+
+<fieldset>
+  <p id="error"></p>
+  <button type="submit">Submit survey</button>
+</fieldset>
+
+</form>
+
+<script>
+  var f = document.getElementById('survey');
+  document.getElementById('survey_date').value = new Date().toISOString().slice(0, 10);
+
+  document.getElementById('locate').onclick = function () {
+    var status = document.getElementById('locate_status');
+    if (!navigator.geolocation) { status.textContent = 'Location not available on this device. Type the coordinates.'; return; }
+    status.textContent = 'Finding location...';
+    navigator.geolocation.getCurrentPosition(function (p) {
+      document.getElementById('lat').value = p.coords.latitude.toFixed(6);
+      document.getElementById('lng').value = p.coords.longitude.toFixed(6);
+      document.getElementById('gps_accuracy').value = Math.round(p.coords.accuracy);
+      status.textContent = 'Found (accurate to about ' + Math.round(p.coords.accuracy) + ' m).';
+    }, function (e) {
+      status.textContent = 'Could not get location (' + e.message + '). Type the coordinates.';
+    }, { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 });
+  };
+
+  // Typing coordinates by hand clears the stored GPS accuracy.
+  ['lat', 'lng'].forEach(function (id) {
+    document.getElementById(id).oninput = function () { document.getElementById('gps_accuracy').value = ''; };
+  });
+
+  // "None of the above" and symptoms exclude each other; Q3 options exclude each other.
+  var none = document.getElementById('q9_none');
+  var symptoms = document.querySelectorAll('.q9');
+  none.onchange = function () { if (none.checked) symptoms.forEach(function (c) { c.checked = false; }); };
+  symptoms.forEach(function (c) { c.onchange = function () { if (c.checked) none.checked = false; }; });
+  document.querySelectorAll('.q3').forEach(function (c) {
+    c.onchange = function () { if (c.checked) document.querySelectorAll('.q3').forEach(function (o) { if (o !== c) o.checked = false; }); };
+  });
+
+  // Re-enable the button if the student comes back to this page with the Back button.
+  window.addEventListener('pageshow', function () {
+    var b = f.querySelector('button[type=submit]');
+    b.disabled = false;
+    b.textContent = 'Submit survey';
+  });
+
+  f.onsubmit = function (e) {
+    var v = function (n) { return f.elements[n].value.trim(); };
+    var ticked = function (sel) { return f.querySelectorAll(sel + ':checked').length > 0; };
+    var errors = [];
+    if (v('q3_minutes') === '' && !ticked('[name=q3_other]')) errors.push('Q3: enter minutes or tick an option.');
+    if (v('q4_trips') === '' && !ticked('[name=q4_at_home]')) errors.push('Q4: enter trips per week or tick the option.');
+    if (v('q8_people') === '' && !ticked('[name=q8_dont_know]')) errors.push('Q8: enter number of people or tick Don\'t know.');
+    if (!ticked('[name=q9]')) errors.push('Q9: tick at least one option.');
+    if (f.querySelector('[name=q2][value=Other]').checked && v('q2_other') === '') errors.push('Q2: describe the other water source.');
+    if (errors.length) {
+      e.preventDefault();
+      document.getElementById('error').innerHTML = '<b>' + errors.join('<br>') + '</b>';
+      return;
+    }
+    f.querySelector('button[type=submit]').disabled = true;
+    f.querySelector('button[type=submit]').textContent = 'Uploading...';
+  };
+</script>
+</body>
+</html>
