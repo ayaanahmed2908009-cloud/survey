@@ -10,15 +10,16 @@ const PHOTO_DIR = path.join(DATA_DIR, 'photos');
 const DB_FILE = path.join(DATA_DIR, 'responses.jsonl');
 const SURVEY_PASSWORD = process.env.SURVEY_PASSWORD;
 const MAP_PASSWORD = process.env.MAP_PASSWORD;
-const WELL_LAT = Number(process.env.WELL_LAT);
-const WELL_LNG = Number(process.env.WELL_LNG);
+// Placeholder well location near Khairpur until the real coordinates are set.
+const WELL_LAT = Number(process.env.WELL_LAT || 27.514);
+const WELL_LNG = Number(process.env.WELL_LNG || 68.7905);
 
 if (!SURVEY_PASSWORD || !MAP_PASSWORD) {
   console.error('Set SURVEY_PASSWORD and MAP_PASSWORD before starting.');
   process.exit(1);
 }
 if (!Number.isFinite(WELL_LAT) || !Number.isFinite(WELL_LNG)) {
-  console.error('Set WELL_LAT and WELL_LNG (water well coordinates) before starting.');
+  console.error('WELL_LAT and WELL_LNG must be numbers.');
   process.exit(1);
 }
 

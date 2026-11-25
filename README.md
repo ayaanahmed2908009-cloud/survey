@@ -11,7 +11,7 @@ Two password-protected pages:
 Requires Node 18 or newer.
 
     npm install
-    SURVEY_PASSWORD=... MAP_PASSWORD=... WELL_LAT=27.xxxxxx WELL_LNG=68.xxxxxx npm start
+    SURVEY_PASSWORD=... MAP_PASSWORD=... npm start
 
 The browser asks for a password; any username works. Students only get `SURVEY_PASSWORD`, so they
 cannot see the map or other families' data.
@@ -20,8 +20,8 @@ cannot see the map or other families' data.
 |-------------------|------------------------------------------------------|
 | `SURVEY_PASSWORD` | Password for `/survey`                               |
 | `MAP_PASSWORD`    | Password for `/map`                                  |
-| `WELL_LAT`        | Latitude of the solar water well                     |
-| `WELL_LNG`        | Longitude of the solar water well                    |
+| `WELL_LAT`        | Latitude of the well (placeholder default 27.514)    |
+| `WELL_LNG`        | Longitude of the well (placeholder default 68.7905)  |
 | `PORT`            | Port to listen on (default 3000)                     |
 | `DATA_DIR`        | Where data is stored (default `./data`)              |
 
