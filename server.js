@@ -4,6 +4,10 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+// Load settings (passwords etc.) from a .env file next to this script, if one exists.
+const ENV_FILE = path.join(__dirname, '.env');
+if (fs.existsSync(ENV_FILE)) process.loadEnvFile(ENV_FILE);
+
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const PHOTO_DIR = path.join(DATA_DIR, 'photos');
@@ -15,7 +19,7 @@ const WELL_LAT = Number(process.env.WELL_LAT || 27.514);
 const WELL_LNG = Number(process.env.WELL_LNG || 68.7905);
 
 if (!SURVEY_PASSWORD || !MAP_PASSWORD) {
-  console.error('Set SURVEY_PASSWORD and MAP_PASSWORD before starting.');
+  console.error('Set SURVEY_PASSWORD and MAP_PASSWORD in a .env file or the environment before starting.');
   process.exit(1);
 }
 if (!Number.isFinite(WELL_LAT) || !Number.isFinite(WELL_LNG)) {

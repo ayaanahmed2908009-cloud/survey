@@ -8,10 +8,14 @@ Two password-protected pages:
 
 ## Run
 
-Requires Node 18 or newer.
+Requires Node 20.12 or newer.
+
+Copy `.env.example` to `.env` and set the two passwords in it, then:
 
     npm install
-    SURVEY_PASSWORD=... MAP_PASSWORD=... npm start
+    npm start
+
+`.env` is never committed to git. Settings can also be given as environment variables instead.
 
 The browser asks for a password; any username works. Students only get `SURVEY_PASSWORD`, so they
 cannot see the map or other families' data.
