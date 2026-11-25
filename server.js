@@ -9,7 +9,7 @@ const ENV_FILE = path.join(__dirname, '.env');
 if (fs.existsSync(ENV_FILE)) process.loadEnvFile(ENV_FILE);
 
 const PORT = process.env.PORT || 3000;
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
+const DATA_DIR = process.env.DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, 'data');
 const PHOTO_DIR = path.join(DATA_DIR, 'photos');
 const DB_FILE = path.join(DATA_DIR, 'responses.jsonl');
 const SURVEY_PASSWORD = process.env.SURVEY_PASSWORD;
