@@ -44,6 +44,58 @@ function append(record) {
   fs.appendFileSync(DB_FILE, JSON.stringify(record) + '\n');
 }
 
+// ---------- copy to Google Sheet (optional, see apps-script/Code.gs) ----------
+// Every saved survey is sent to the Apps Script. Households it has confirmed are listed in
+// SYNCED_FILE; anything not yet confirmed is retried after each new survey and every 10 minutes.
+
+const SHEETS_WEBHOOK_URL = process.env.SHEETS_WEBHOOK_URL;
+const SHEETS_SECRET = process.env.SHEETS_SECRET;
+const SYNCED_FILE = path.join(DATA_DIR, 'synced-to-sheet.txt');
+const PHOTO_TYPES = { '.jpg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.heic': 'image/heic', '.heif': 'image/heif' };
+let syncRunning = false;
+
+function syncedIds() {
+  if (!fs.existsSync(SYNCED_FILE)) return new Set();
+  return new Set(fs.readFileSync(SYNCED_FILE, 'utf8').split('\n').filter(Boolean));
+}
+
+async function syncToSheet() {
+  if (!SHEETS_WEBHOOK_URL || !SHEETS_SECRET || syncRunning) return;
+  syncRunning = true;
+  try {
+    const done = syncedIds();
+    for (const record of readAll()) {
+      if (done.has(record.household_id)) continue;
+      const photoPath = path.join(PHOTO_DIR, record.photo);
+      const res = await fetch(SHEETS_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          secret: SHEETS_SECRET,
+          record,
+          photo_base64: fs.existsSync(photoPath) ? fs.readFileSync(photoPath).toString('base64') : '',
+          photo_type: PHOTO_TYPES[path.extname(record.photo)] || 'application/octet-stream',
+        }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!result || !result.ok) {
+        console.error(`Google Sheet copy failed for ${record.household_id}:`, result ? result.error : `HTTP ${res.status}`);
+        break; // try again later
+      }
+      fs.appendFileSync(SYNCED_FILE, record.household_id + '\n');
+    }
+  } catch (err) {
+    console.error('Google Sheet copy failed:', err.message);
+  } finally {
+    syncRunning = false;
+  }
+}
+
+if (SHEETS_WEBHOOK_URL) {
+  syncToSheet();
+  setInterval(syncToSheet, 10 * 60 * 1000);
+}
+
 // ---------- password protection (HTTP Basic Auth, any username) ----------
 
 function sameSecret(a, b) {
@@ -191,6 +243,7 @@ app.post('/survey', surveyAuth, (req, res) => {
       submitted_at: new Date().toISOString(),
     };
     append(record);
+    syncToSheet();
     res.send(page('Saved', `<h1>Saved</h1><p>Household ${esc(record.household_id)} has been recorded.</p><p><a href="/survey">Enter another household</a></p>`));
   });
 });
@@ -200,7 +253,9 @@ app.get('/map', mapAuth, (req, res) => res.sendFile(path.join(__dirname, 'public
 
 app.get('/map/data.json', mapAuth, (req, res) => {
   const households = readAll().map((r) => ({ ...r, distance_to_well_m: distanceMetres(r.lat, r.lng, WELL_LAT, WELL_LNG) }));
-  res.json({ well: { lat: WELL_LAT, lng: WELL_LNG }, households });
+  const synced = syncedIds();
+  const sheet = SHEETS_WEBHOOK_URL ? { waiting: households.filter((h) => !synced.has(h.household_id)).length } : null;
+  res.json({ well: { lat: WELL_LAT, lng: WELL_LNG }, households, sheet });
 });
 
 app.get('/map/photos/:file', mapAuth, (req, res) => {

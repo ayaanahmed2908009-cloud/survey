@@ -117,7 +117,8 @@
 
     var n = data.households.length;
     var c1 = data.households.filter(function (h) { return h.community.indexOf('1') === 0; }).length;
-    document.getElementById('summary').textContent = n + ' households surveyed (' + c1 + ' community 1, ' + (n - c1) + ' community 2).';
+    document.getElementById('summary').textContent = n + ' households surveyed (' + c1 + ' community 1, ' + (n - c1) + ' community 2).' +
+      (data.sheet ? (data.sheet.waiting ? ' ' + data.sheet.waiting + ' not yet copied to the Google Sheet.' : ' All copied to the Google Sheet.') : '');
 
     if (n) map.fitBounds(bounds, { padding: [30, 30], maxZoom: 17 });
     else map.setView([well.lat, well.lng], 16);

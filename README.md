@@ -46,3 +46,23 @@ and Basic Auth passwords are only protected in transit over HTTPS.
 3. Right-click the service, Attach Volume, mount path `/data`. Survey data and photos are saved
    there automatically and survive redeploys.
 4. Settings, Networking, Generate Domain. This gives an HTTPS address.
+
+## Copying surveys to Google Sheets
+
+Every survey is also copied as a row into the Google Sheet "Project Paani Survey Data", and the
+family photo is saved in the Drive folder "Project Paani Photos" (the row links to it). If Google
+is unreachable, the copy is retried after the next survey and every 10 minutes. The map page shows
+how many surveys are still waiting to be copied. The website's own data stays the main copy.
+
+One-time setup:
+
+1. Open the sheet, then Extensions, Apps Script.
+2. Replace everything in `Code.gs` with `apps-script/Code.gs` from this repo, and set `SECRET` to a
+   long random text. Save.
+3. Deploy, New deployment, type Web app. Execute as: Me. Who has access: Anyone. Deploy, and allow
+   the permissions Google asks for. Copy the Web app URL (ends in `/exec`).
+4. On Railway, add variables `SHEETS_WEBHOOK_URL` (that URL) and `SHEETS_SECRET` (the same text as
+   in step 2).
+
+If you change `Code.gs` later, use Deploy, Manage deployments, edit, New version, so the URL stays
+the same.
