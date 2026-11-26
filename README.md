@@ -4,7 +4,8 @@ Two password-protected pages:
 
 - `/survey` — students enter the household survey, the family's coordinates and a family photo.
 - `/map` — map of every surveyed household (click a dot for its answers and photo), the water well
-  labelled, distance from each household to the well, and a CSV download of all data.
+  labelled, distance from each household to the well, and a CSV download of all data. A household
+  can be deleted from its box on the map; this also removes its row from the Google Sheet.
 
 ## Run
 
@@ -33,6 +34,8 @@ cannot see the map or other families' data.
 
 - `data/responses.jsonl` — one survey per line.
 - `data/photos/` — family photos.
+- `data/deleted.jsonl` — households deleted on the map (their photos are kept), so a mistaken
+  delete can be recovered by hand.
 
 Back up the `data` folder regularly. When hosting, `DATA_DIR` must be on persistent storage.
 

@@ -21,8 +21,9 @@ function doPost(e) {
   try {
     const body = JSON.parse(e.postData.contents);
     if (body.secret !== SECRET) return reply({ ok: false, error: 'wrong secret' });
-    const r = body.record;
     const sheet = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
+    if (body.action === 'delete') return deleteHousehold(sheet, String(body.household_id));
+    const r = body.record;
 
     // Skip households already in the sheet, so re-sending never creates duplicates.
     const last = sheet.getLastRow();
@@ -52,6 +53,24 @@ function doPost(e) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// Removes the household's row and moves its photo to the Drive bin (recoverable for 30 days).
+// Succeeds even if the row is already gone, so retries are safe.
+function deleteHousehold(sheet, id) {
+  const last = sheet.getLastRow();
+  if (last < 2) return reply({ ok: true });
+  const values = sheet.getRange(2, 1, last - 1, COLUMNS.length).getDisplayValues();
+  const linkCol = COLUMNS.indexOf('photo_link');
+  for (let i = values.length - 1; i >= 0; i--) {
+    if (values[i][0] !== id) continue;
+    const m = values[i][linkCol].match(/\/d\/([^/?]+)/);
+    if (m) {
+      try { DriveApp.getFileById(m[1]).setTrashed(true); } catch (err) { /* photo already gone */ }
+    }
+    sheet.deleteRow(i + 2);
+  }
+  return reply({ ok: true });
 }
 
 function reply(obj) {

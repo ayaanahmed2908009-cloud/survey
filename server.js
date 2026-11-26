@@ -46,48 +46,87 @@ function append(record) {
 
 // ---------- copy to Google Sheet (optional, see apps-script/Code.gs) ----------
 // Every saved survey is sent to the Apps Script. Households it has confirmed are listed in
-// SYNCED_FILE; anything not yet confirmed is retried after each new survey and every 10 minutes.
+// SYNCED_FILE. Households deleted on the map are queued in DELETE_QUEUE_FILE until the sheet
+// confirms the row is gone. Anything unconfirmed is retried on the next change and every 10 minutes.
 
 const SHEETS_WEBHOOK_URL = process.env.SHEETS_WEBHOOK_URL;
 const SHEETS_SECRET = process.env.SHEETS_SECRET;
 const SYNCED_FILE = path.join(DATA_DIR, 'synced-to-sheet.txt');
+const DELETE_QUEUE_FILE = path.join(DATA_DIR, 'sheet-deletes-pending.txt');
 const PHOTO_TYPES = { '.jpg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.heic': 'image/heic', '.heif': 'image/heif' };
 let syncRunning = false;
+let syncAgain = false;
+
+function readLines(file) {
+  if (!fs.existsSync(file)) return [];
+  return fs.readFileSync(file, 'utf8').split('\n').filter(Boolean);
+}
+
+function writeLines(file, lines) {
+  fs.writeFileSync(file, lines.map((l) => l + '\n').join(''));
+}
 
 function syncedIds() {
-  if (!fs.existsSync(SYNCED_FILE)) return new Set();
-  return new Set(fs.readFileSync(SYNCED_FILE, 'utf8').split('\n').filter(Boolean));
+  return new Set(readLines(SYNCED_FILE));
+}
+
+async function callSheet(payload) {
+  const res = await fetch(SHEETS_WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ secret: SHEETS_SECRET, ...payload }),
+  });
+  const result = await res.json().catch(() => null);
+  if (!result || !result.ok) throw new Error(result ? result.error : `HTTP ${res.status}`);
 }
 
 async function syncToSheet() {
-  if (!SHEETS_WEBHOOK_URL || !SHEETS_SECRET || syncRunning) return;
+  if (!SHEETS_WEBHOOK_URL || !SHEETS_SECRET) return;
+  if (syncRunning) {
+    syncAgain = true;
+    return;
+  }
   syncRunning = true;
   try {
+    // Deletions first, so a household ID that is deleted and entered again ends up as one fresh row.
+    for (const id of readLines(DELETE_QUEUE_FILE)) {
+      try {
+        await callSheet({ action: 'delete', household_id: id });
+      } catch (err) {
+        console.error(`Google Sheet delete failed for ${id}:`, err.message);
+        return; // try again later
+      }
+      writeLines(DELETE_QUEUE_FILE, readLines(DELETE_QUEUE_FILE).filter((x) => x !== id));
+    }
+
     const done = syncedIds();
     for (const record of readAll()) {
       if (done.has(record.household_id)) continue;
       const photoPath = path.join(PHOTO_DIR, record.photo);
-      const res = await fetch(SHEETS_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          secret: SHEETS_SECRET,
+      try {
+        await callSheet({
+          action: 'add',
           record,
           photo_base64: fs.existsSync(photoPath) ? fs.readFileSync(photoPath).toString('base64') : '',
           photo_type: PHOTO_TYPES[path.extname(record.photo)] || 'application/octet-stream',
-        }),
-      });
-      const result = await res.json().catch(() => null);
-      if (!result || !result.ok) {
-        console.error(`Google Sheet copy failed for ${record.household_id}:`, result ? result.error : `HTTP ${res.status}`);
-        break; // try again later
+        });
+      } catch (err) {
+        console.error(`Google Sheet copy failed for ${record.household_id}:`, err.message);
+        return; // try again later
       }
-      fs.appendFileSync(SYNCED_FILE, record.household_id + '\n');
+      // Skip marking it copied if it was deleted on the map while it was being sent.
+      if (readAll().some((r) => r.household_id === record.household_id)) {
+        fs.appendFileSync(SYNCED_FILE, record.household_id + '\n');
+      }
     }
   } catch (err) {
-    console.error('Google Sheet copy failed:', err.message);
+    console.error('Google Sheet sync failed:', err.message);
   } finally {
     syncRunning = false;
+    if (syncAgain) {
+      syncAgain = false;
+      syncToSheet();
+    }
   }
 }
 
@@ -254,8 +293,33 @@ app.get('/map', mapAuth, (req, res) => res.sendFile(path.join(__dirname, 'public
 app.get('/map/data.json', mapAuth, (req, res) => {
   const households = readAll().map((r) => ({ ...r, distance_to_well_m: distanceMetres(r.lat, r.lng, WELL_LAT, WELL_LNG) }));
   const synced = syncedIds();
-  const sheet = SHEETS_WEBHOOK_URL ? { waiting: households.filter((h) => !synced.has(h.household_id)).length } : null;
+  const sheet = SHEETS_WEBHOOK_URL
+    ? { waiting: households.filter((h) => !synced.has(h.household_id)).length, deletesWaiting: readLines(DELETE_QUEUE_FILE).length }
+    : null;
   res.json({ well: { lat: WELL_LAT, lng: WELL_LNG }, households, sheet });
+});
+
+// Delete a household. The record is moved to deleted.jsonl (its photo is kept) so a mistake can
+// be recovered by hand, and its row is removed from the Google Sheet.
+app.post('/map/delete', mapAuth, express.json(), (req, res) => {
+  // Custom header: browsers will not send it from another website, which blocks forged requests.
+  if (req.get('X-Project-Paani') !== 'delete') return res.status(403).json({ ok: false, error: 'Forbidden' });
+  const id = req.body && typeof req.body.household_id === 'string' ? req.body.household_id : '';
+  const all = readAll();
+  const victim = all.find((r) => r.household_id === id);
+  if (!victim) return res.status(404).json({ ok: false, error: 'Household not found' });
+
+  fs.appendFileSync(path.join(DATA_DIR, 'deleted.jsonl'), JSON.stringify({ ...victim, deleted_at: new Date().toISOString() }) + '\n');
+  const tmp = DB_FILE + '.tmp';
+  fs.writeFileSync(tmp, all.filter((r) => r !== victim).map((r) => JSON.stringify(r) + '\n').join(''));
+  fs.renameSync(tmp, DB_FILE);
+
+  writeLines(SYNCED_FILE, readLines(SYNCED_FILE).filter((x) => x !== id));
+  if (SHEETS_WEBHOOK_URL) {
+    if (!readLines(DELETE_QUEUE_FILE).includes(id)) fs.appendFileSync(DELETE_QUEUE_FILE, id + '\n');
+    syncToSheet();
+  }
+  res.json({ ok: true });
 });
 
 app.get('/map/photos/:file', mapAuth, (req, res) => {
